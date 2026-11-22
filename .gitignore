@@ -1,0 +1,14 @@
+# executaveis gerados pelo make
+/maxcut
+/referencia
+
+# saidas de execucoes e do SLURM
+saida*.txt
+*.sol
+slurm-*.out
+cluster/entrada.txt
+
+# pacote enviado ao cluster
+*.tar.gz
+
+.DS_Store
