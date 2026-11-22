@@ -95,9 +95,9 @@ roda() {
     local inicio
     inicio=$(agora)
     if [ -n "$4" ]; then
-        MAXCUT_TEMPO=$4 mpirun $FLAGS_MPI -np "$2" cluster/fixa.sh "$3" ./maxcut "$1" "$5" 2> "$TMP/log"
+        MAXCUT_TEMPO=$4 mpirun $FLAGS_MPI -np "$2" bash cluster/fixa.sh "$3" ./maxcut "$1" "$5" 2> "$TMP/log"
     else
-        mpirun $FLAGS_MPI -np "$2" cluster/fixa.sh "$3" ./maxcut "$1" "$5" 2> "$TMP/log"
+        mpirun $FLAGS_MPI -np "$2" bash cluster/fixa.sh "$3" ./maxcut "$1" "$5" 2> "$TMP/log"
     fi
     codigo=$?
     relogio=$(desde "$inicio")
@@ -178,14 +178,14 @@ principal() {
 
     titulo "TESTES"
     export OMP_WAIT_POLICY=active
-    MPIRUN_FLAGS="$FLAGS_MPI" testes/testa.sh 2>&1
+    MPIRUN_FLAGS="$FLAGS_MPI" bash testes/testa.sh 2>&1
 
     titulo "FIXACAO DOS PROCESSADORES"
     MAXCUT_ORDEM_CPUS=$(ordem_cpus)
     if [ -n "$MAXCUT_ORDEM_CPUS" ] && taskset -c "$(echo $MAXCUT_ORDEM_CPUS | tr ' ' ',')" true 2> /dev/null; then
         echo "ordem de uso: $MAXCUT_ORDEM_CPUS"
         echo "exemplo, 2 ranks de 4 threads:"
-        mpirun $FLAGS_MPI -np 2 cluster/fixa.sh 4 grep Cpus_allowed_list /proc/self/status 2>&1
+        mpirun $FLAGS_MPI -np 2 bash cluster/fixa.sh 4 grep Cpus_allowed_list /proc/self/status 2>&1
     else
         echo "sem lscpu/taskset ou processadores restritos: as medicoes rodam SEM fixacao"
         MAXCUT_ORDEM_CPUS=""

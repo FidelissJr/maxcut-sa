@@ -82,6 +82,7 @@ Tudo abaixo foi medido em um MacBook com Apple M4 (4 núcleos rápidos e 6 econ�
 - Grafo G1 do G-set (800 vértices, melhor corte conhecido 11.624): 11.624, 11.598 e 11.624 em três execuções de 5 s com uma thread.
 - Operação atômica: ao removê-la de propósito, a conferência interna acusou 34 mil Δ errados com 8 threads; com ela, nenhum.
 - Execução completa na instância de 100 mil vértices (2 ranks, 2 threads, tempo padrão): 80,1 s de relógio, corte 117.960.
+- Linux (máquina de entrada do LabP2D: Ubuntu 22.04, gcc 11.4, Open MPI 4.1.2): compila sem avisos, com `-march=native` e com `ARQ=x86-64-v3`, e todos os testes passam.
 
 **Referência sequencial** (Algoritmo 1, instância de 100 mil vértices)
 

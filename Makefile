@@ -30,7 +30,7 @@ referencia: ferramentas/referencia.c src/grafo.c src/grafo.h
 	cc -O3 -std=gnu11 -Wall -Wextra -o $@ ferramentas/referencia.c src/grafo.c -lm
 
 teste: maxcut
-	testes/testa.sh
+	bash testes/testa.sh
 
 clean:
 	rm -f maxcut referencia
