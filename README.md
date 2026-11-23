@@ -26,24 +26,25 @@ Ao final há uma descida: troca-se todo vértice que melhora o corte até não s
 | `src/grafo.c`, `src/grafo.h` | leitura do arquivo, coloração, lista de vizinhos |
 | `Makefile` | compila com `mpicc` e OpenMP |
 | `testes/testa.sh` | testes de validação |
-| `ferramentas/verifica.py` | verificador independente: calcula o corte de uma saída |
-| `ferramentas/gera.py` | gerador de grafos aleatórios no formato do enunciado |
 | `ferramentas/forca_bruta.py` | corte máximo exato para grafos de até 22 vértices |
 | `ferramentas/referencia.c` | Algoritmo 1 sequencial, para comparação |
-| `instancias/` | grafos gerados com `gera.py` (1.000, 20.000 e 100.000 vértices, semente 1) |
+| `tf-maxcut/` | material oficial do professor: `gerador`, `verificador` e instâncias de exemplo em `entradas/` |
 | `cluster/mede.sh` | roteiro de medição no cluster (instruções em `cluster/LEIAME.md`) |
 | `cluster/fixa.sh` | prende cada rank em um conjunto próprio de núcleos |
 
-A entrega é `src/` e o `Makefile`. O restante é apoio para testar.
+A entrega é `src/` e o `Makefile`. O restante é apoio para testar. As instâncias e o verificador são os **oficiais** (pasta `tf-maxcut`), para comparar com os valores de referência do professor.
 
 ## Compilar e executar
 
 ```sh
-make
+make                                 # compila o maxcut
+make -C tf-maxcut                    # compila o gerador e o verificador oficiais
 export OMP_WAIT_POLICY=active
-OMP_NUM_THREADS=4 mpirun -np 2 ./maxcut instancias/grande.txt saida.txt
-python3 ferramentas/verifica.py instancias/grande.txt saida.txt
+OMP_NUM_THREADS=4 mpirun -np 2 ./maxcut tf-maxcut/entradas/n100000_s1.txt saida.txt
+tf-maxcut/verificador tf-maxcut/entradas/n100000_s1.txt saida.txt
 ```
+
+As instâncias oficiais ficam em `tf-maxcut/entradas/` e podem ser recriadas com `tf-maxcut/gerador <n> <semente> > grafo.txt`.
 
 `OMP_WAIT_POLICY=active` faz as threads esperarem na barreira sem dormir. Sem isso, no macOS, 4 threads ficaram mais lentas que 1. O número de ranks vezes o de threads não deve passar do número de núcleos, senão a espera ocupada passa a atrapalhar.
 
@@ -63,13 +64,13 @@ O programa aceita ajustes por variáveis de ambiente, usadas nos experimentos:
 make teste
 ```
 
-Roda o programa de verdade e confere com o verificador independente:
+Roda o programa de verdade e confere com o **verificador oficial** (compila as ferramentas de `tf-maxcut` sozinho):
 
 1. o exemplo do enunciado dá corte 3;
 2. vértices sem aresta aparecem na saída;
-3. o corte é igual ao ótimo da força bruta em 10 grafos de 16 vértices;
+3. o corte é igual ao ótimo da força bruta em 10 grafos de 16 vértices (gerador oficial);
 4. com 4 threads, o corte acompanhado pelo programa bate com o verificador;
-5. o corte no grafo de 1.000 vértices passa de um mínimo;
+5. o corte na instância Treino (`n1000_s1`) passa de 1.150 (melhor conhecido 1.178);
 6. com 2 ranks e 2 threads, o resultado continua consistente;
 7. o programa termina no tempo pedido.
 
@@ -77,43 +78,46 @@ Roda o programa de verdade e confere com o verificador independente:
 
 Tudo abaixo foi medido em um MacBook com Apple M4 (4 núcleos rápidos e 6 econômicos), não no cluster. Os números do cluster serão diferentes.
 
-**Validação**
+**Validação contra as ferramentas oficiais.** O corte do nosso programa confere com o `tf-maxcut/verificador` em todas as instâncias de exemplo, e iguala ou supera o melhor corte conhecido (execuções de 0,2 s a 20 s, uma máquina só):
 
-- Grafo G1 do G-set (800 vértices, melhor corte conhecido 11.624): 11.624, 11.598 e 11.624 em três execuções de 5 s com uma thread.
+| Instância | Melhor conhecido | Nosso corte |
+|---|---:|---:|
+| `exemplo_n5` | 3 (ótimo) | 3 |
+| `n20_s1` | 18 (ótimo) | 18 |
+| `n100_s1` | 118 | 118 |
+| `n1000_s1` (Treino) | 1.178 | 1.178 |
+| `n20000_s1` | 23.668 | **23.716** |
+| `n100000_s1` | 116.548 | **116.890** |
+
+Nas duas menores chegamos ao ótimo provado por força bruta; nas duas maiores (do tamanho da competição) superamos o *Simulated Annealing* de referência do professor.
+
+**Correção**
+
 - Operação atômica: ao removê-la de propósito, a conferência interna acusou 34 mil Δ errados com 8 threads; com ela, nenhum.
-- Execução completa na instância de 100 mil vértices (2 ranks, 2 threads, tempo padrão): 80,1 s de relógio, corte 117.960.
+- Grafo G1 do G-set (800 vértices, melhor corte conhecido 11.624): 11.624 em duas de três execuções de 5 s (uma thread).
 - Linux (máquina de entrada do LabP2D: Ubuntu 22.04, gcc 11.4, Open MPI 4.1.2): compila sem avisos, com `-march=native` e com `ARQ=x86-64-v3`, e todos os testes passam.
 
-**Referência sequencial** (Algoritmo 1, instância de 100 mil vértices)
+**Referência sequencial** (nosso Algoritmo 1, instância `n100000_s1`)
 
 | Varreduras | Corte | Tempo |
 |---|---|---|
-| 100 | 115.198 | 0,08 s |
-| 1.000 | 117.075 | 0,64 s |
-| 10.000 | 117.545 | 6,4 s |
+| 100 | 114.101 | 0,07 s |
+| 1.000 | 115.844 | 0,63 s |
+| 10.000 | 116.432 | 6,4 s |
 
-O ganho por década de varreduras (1.877 e 470) é parecido com o da Tabela II do enunciado (1.849 e 550).
+O ganho por década de varreduras (1.743 e 588) tem a mesma forma da Tabela II do enunciado: cada dez vezes mais varreduras rende cada vez menos.
 
-**Varreduras em 4 s, um rank**
+**Varreduras em 4 s, um rank** (instâncias oficiais)
 
-| Threads | Grande (100 mil) | Média (20 mil) |
+| Threads | Grande (`n100000_s1`) | Média (`n20000_s1`) |
 |---|---|---|
-| 1 | 12.991 | 75.304 |
-| 2 | 22.949 | 64.188 |
-| 4 | 32.975 | 74.936 |
+| 1 | 12.945 | 74.268 |
+| 2 | 22.587 | 63.671 |
+| 4 | 32.854 | 74.199 |
 
-Na instância grande, 4 threads fazem 2,5 vezes mais varreduras. Na média, as threads não aceleram: cada cor tem pouco trabalho e, em temperatura alta, as threads disputam a memória dos Δ.
+Na instância grande, 4 threads fazem ~2,5 vezes mais varreduras. Na média, as threads não aceleram: cada cor tem pouco trabalho e, em temperatura alta, as threads disputam a memória dos Δ.
 
-**Corte em 10 s na instância grande** (média de 3 ou 4 execuções; o ruído entre execuções é de cerca de 25 pontos)
-
-| Configuração | Corte |
-|---|---|
-| 1 rank, 1 thread | 117.823 |
-| 4 ranks, 1 thread, sem troca | 117.855 a 117.871 |
-| 4 ranks, 1 thread, com troca (0,3 s a 2,5 s) | 117.851 a 117.874 |
-| 1 rank, 4 threads | 117.889 |
-
-Começar em T0 = 1,0 em vez de 1,5 piorou o corte em cerca de 55 pontos. Variar T1 entre 0,1 e 0,3 não fez diferença mensurável.
+Sobre os parâmetros: começar em T0 = 1,5 (em vez de 1,0) melhora o corte; variar T1 entre 0,1 e 0,3 não fez diferença mensurável. Trocar a partição entre ranks durante o resfriamento não mudou o corte além do ruído, por isso o padrão é trocar pouco (`MAXCUT_TROCA=20`).
 
 ## O que falta fazer no cluster
 

@@ -34,6 +34,12 @@ if [ ! -f src/maxcut.c ]; then
     exit 1
 fi
 
+# Ferramentas e instancias oficiais do professor (pasta tf-maxcut).
+TF=tf-maxcut
+VER="$TF/verificador"
+GRANDE="$TF/entradas/n100000_s1.txt"   # instancia Grande; melhor conhecido 116548
+MEDIA="$TF/entradas/n20000_s1.txt"     # instancia Media;  melhor conhecido 23668
+
 # ---------------------------------------------------------------------------
 # Passo 0: na maquina de entrada, anota os dados dela e envia para a fila.
 # ---------------------------------------------------------------------------
@@ -104,7 +110,7 @@ roda() {
     varreduras=$(sed -n 's/.*varreduras=\([0-9]*\).*/\1/p' "$TMP/log" | tail -1)
     corte=$(sed -n 's/.*corte=\(-*[0-9]*\).*/\1/p' "$TMP/log" | tail -1)
     interno=$(sed -n 's/.*tempo=\([0-9.]*\)s.*/\1/p' "$TMP/log" | tail -1)
-    verificado=$(python3 ferramentas/verifica.py "$1" "$5" 2> /dev/null)
+    verificado=$("$VER" "$1" "$5" 2> /dev/null)
     if [ $codigo -ne 0 ] || [ -z "$corte" ]; then
         echo "    (falhou, codigo $codigo) $(tr '\n' ' ' < "$TMP/log" | cut -c1-600)"
     fi
@@ -175,6 +181,7 @@ principal() {
     fi
     make 2>&1 || { echo "COMPILACAO FALHOU"; return 1; }
     make referencia 2>&1
+    make -C "$TF" 2>&1        # gerador e verificador oficiais
 
     titulo "TESTES"
     export OMP_WAIT_POLICY=active
@@ -192,10 +199,11 @@ principal() {
     fi
     export MAXCUT_ORDEM_CPUS
 
-    titulo "REFERENCIA SEQUENCIAL (Algoritmo 1, instancia grande)"
+    titulo "REFERENCIA SEQUENCIAL (Algoritmo 1, instancia Grande)"
+    echo "melhor corte conhecido da n100000_s1: 116548"
     for v in 100 1000; do
         inicio=$(agora)
-        ./referencia instancias/grande.txt $v 1 2>&1 | tail -1
+        ./referencia "$GRANDE" $v 1 2>&1 | tail -1
         echo "    $v varreduras em $(desde "$inicio") s"
     done
 
@@ -207,7 +215,7 @@ principal() {
             cp "$TMP/maxcut-$versao" maxcut
             for t in 1 8; do
                 [ "$t" -le "$NCPUS" ] || continue
-                roda instancias/grande.txt 1 $t 5 "$TMP/sol"
+                roda "$GRANDE" 1 $t 5 "$TMP/sol"
                 linha "$versao" 1 $t 1
             done
         done
@@ -218,26 +226,29 @@ principal() {
     # 1 rank com 1 a 24 threads mostra o ganho das threads; as outras linhas
     # repartem 8 nucleos (os rapidos) e 16 nucleos (todos) entre ranks e threads.
     cabecalho
-    for nome in grande media; do
+    for par in "grande $GRANDE" "media $MEDIA"; do
+        set -- $par; nome=$1; inst=$2
         for config in "1 1" "1 2" "1 4" "1 8" "1 16" "1 24" \
                       "2 4" "4 2" "8 1" "2 8" "4 4" "16 1"; do
             set -- $config
             [ $(($1 * $2)) -le "$NCPUS" ] || continue
             for rep in $(seq 1 "$REPETICOES"); do
-                roda instancias/$nome.txt "$1" "$2" "$DURACAO" "$TMP/sol"
-                linha $nome "$1" "$2" "$rep"
+                roda "$inst" "$1" "$2" "$DURACAO" "$TMP/sol"
+                linha "$nome" "$1" "$2" "$rep"
             done
         done
     done
 
     titulo "EXECUCAO COMPLETA (tempo padrao do programa, saida na pasta do projeto)"
     # O que importa aqui e a coluna "relogio": tem de ficar abaixo de 90 s.
+    # Melhor corte conhecido: Grande 116548, Media 23668.
     cabecalho
     ranks=4; threads=4
     [ $((ranks * threads)) -le "$NCPUS" ] || { ranks=2; threads=2; }
-    for nome in grande media; do
-        roda instancias/$nome.txt $ranks $threads "$TEMPO_COMPLETO" cluster/saida-$nome.txt
-        linha $nome $ranks $threads 1
+    for par in "grande $GRANDE" "media $MEDIA"; do
+        set -- $par; nome=$1; inst=$2
+        roda "$inst" $ranks $threads "$TEMPO_COMPLETO" cluster/saida-$nome.txt
+        linha "$nome" $ranks $threads 1
         ls -l cluster/saida-$nome.txt 2>&1
         rm -f cluster/saida-$nome.txt
     done

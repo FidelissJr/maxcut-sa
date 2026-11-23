@@ -1,6 +1,8 @@
 # executaveis gerados pelo make
 /maxcut
 /referencia
+tf-maxcut/gerador
+tf-maxcut/verificador
 
 # saidas de execucoes e do SLURM
 saida*.txt
